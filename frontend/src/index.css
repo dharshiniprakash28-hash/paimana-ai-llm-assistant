@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-slate-100 font-sans antialiased min-h-screen selection:bg-indigo-600 selection:text-white;
+    background-color: #030712;
+    background-image: 
+      radial-gradient(1200px circle at 50% -15%, rgba(59, 130, 246, 0.18), transparent 60%),
+      radial-gradient(900px circle at 90% 20%, rgba(99, 102, 241, 0.14), transparent 50%),
+      radial-gradient(900px circle at 10% 45%, rgba(6, 182, 212, 0.12), transparent 50%),
+      radial-gradient(800px circle at 75% 80%, rgba(168, 85, 247, 0.1), transparent 50%),
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+    background-attachment: fixed;
+  }
+}
+
+/* Glassmorphism & Cyber Card utilities */
+.glass-panel {
+  background: rgba(10, 15, 30, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+    0 16px 40px -12px rgba(0, 0, 0, 0.75);
+}
+
+.glass-card {
+  background: linear-gradient(145deg, rgba(17, 24, 48, 0.7) 0%, rgba(9, 13, 28, 0.8) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px -8px rgba(0, 0, 0, 0.6);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    0 16px 36px -8px rgba(99, 102, 241, 0.22);
+  transform: translateY(-2px);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px -3px rgba(59, 130, 246, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.35);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 20px -3px rgba(99, 102, 241, 0.35);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px -3px rgba(245, 158, 11, 0.3);
+}
+
+.glow-rose {
+  box-shadow: 0 0 20px -3px rgba(244, 63, 94, 0.35);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.3);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-amber {
+  background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #6ee7b7 0%, #10b981 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glass input/select elements */
+.cyber-input {
+  background: rgba(11, 16, 33, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease-in-out;
+}
+
+.cyber-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+/* Custom scrollbar for data tables and charts */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b1021;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+
+/* ===================================================================
+   Print / Export layout
+   Screen chrome is stripped so the exported report contains only the
+   report header, KPI cards, charts and tables.
+   =================================================================== */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* --- page setup --- */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Force light rendering of the dark UI so it is legible on paper. */
+  * {
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* --- hide screen-only chrome --- */
+  .no-print,
+  nav,
+  aside,
+  header.app-navbar,
+  .demo-tour,
+  button:not(.print-keep),
+  select,
+  input,
+  textarea {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* --- unlock scroll containers so nothing is clipped --- */
+  main,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* --- report header --- */
+  .print-report-header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+
+  .print-report-header h1 {
+    font-size: 18pt;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+  }
+
+  .print-meta {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+    margin-bottom: 8px;
+  }
+
+  .print-meta th {
+    text-align: left;
+    width: 150px;
+    font-weight: 600;
+    padding: 2px 8px 2px 0;
+    vertical-align: top;
+  }
+
+  .print-meta td {
+    padding: 2px 0;
+  }
+
+  .print-disclosure {
+    font-size: 7.5pt;
+    line-height: 1.45;
+    margin: 3px 0;
+    color: #334155 !important;
+  }
+
+  /* --- keep cards and tables readable --- */
+  .glass-panel,
+  .glass-card,
+  .bg-slate-900\/90,
+  .bg-slate-900\/95,
+  .bg-slate-950\/70,
+  .bg-slate-950\/60,
+  .bg-slate-800\/60 {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 8pt !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 3px 5px !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  img,
+  svg {
+    page-break-inside: avoid;
+  }
+
+  /* --- block-level page break control --- */
+  .print-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* --- charts: recharts renders SVG, which prints fine --- */
+  .recharts-wrapper,
+  .recharts-surface {
+    page-break-inside: avoid;
+  }
+}

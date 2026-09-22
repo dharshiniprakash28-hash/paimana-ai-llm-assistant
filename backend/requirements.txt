@@ -1,0 +1,19 @@
+# --- Web framework ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.6.0
+python-multipart>=0.0.9        # required by FastAPI for file uploads
+python-dotenv>=1.0.0           # loads GEMINI_API_KEY from backend .env
+
+# --- Data ---
+pandas>=2.2.0
+numpy>=1.26.0
+openpyxl>=3.1.0                # XLSX import
+
+# --- Machine learning ---
+scikit-learn>=1.4.0            # Logistic/Linear Regression baselines + Random Forest
+xgboost>=2.0.0                 # ML model (falls back to Random Forest if absent)
+shap>=0.45.0                   # Explainability (optional at runtime)
+
+# --- LLM ---
+google-genai>=1.0.0            # Current Google Gen AI SDK (NOT google-generativeai)
