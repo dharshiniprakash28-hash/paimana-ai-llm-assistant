@@ -7,6 +7,7 @@ import { DataSourceProvider } from './context/DataSourceContext';
 
 // Pages
 import { api } from './services/api';
+import { supabase } from './supabaseClient';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectsPage from './pages/ProjectsPage';
@@ -33,6 +34,19 @@ function AppShell() {
     const saved = localStorage.getItem('paimana_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Verify Supabase Connection on startup
+  useEffect(() => {
+    async function checkSupabase() {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('❌ Supabase connection error:', error.message);
+      } else {
+        console.log('✅ Supabase connected successfully! Session status:', data);
+      }
+    }
+    checkSupabase();
+  }, []);
 
   // Navigation & Project selection
   const [activeTab, setActiveTab] = useState('dashboard');
