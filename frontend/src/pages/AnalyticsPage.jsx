@@ -40,7 +40,7 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, [version]);
 
-  if (loading || !benchmarks) {
+  if (loading || !benchmarks || !benchmarks.global_benchmarks) {
     return (
       <div className="flex flex-col items-center justify-center h-96 text-slate-400 space-y-2">
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const global = benchmarks.global_benchmarks;
+  const global = benchmarks.global_benchmarks || {};
 
   return (
     <div className="space-y-6 pb-12">

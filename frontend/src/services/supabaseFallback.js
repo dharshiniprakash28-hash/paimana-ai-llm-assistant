@@ -57,37 +57,96 @@ export function calculateProjectRisk(p) {
   const costPct = Number(p.cost_variance_pct || 0);
   const gap = Number(p.progress_gap || 0);
   const delay = Number(p.schedule_delay_months || 0);
-  const delayRatio = Number(p.milestone_delay_ratio || 0);
+  const msDelays = Number(p.milestone_delays || 0);
+  const msCount = Number(p.milestone_count || 10);
+  const delayRatio = Number(p.milestone_delay_ratio || (msDelays / (msCount || 1)));
 
-  const costScore = Math.min(100, Math.max(0, costPct * 2.2));
-  const scheduleScore = Math.min(100, Math.max(0, delay * 4.5));
-  const progressScore = Math.min(100, Math.max(0, gap * 2.8));
-  const milestoneScore = Math.min(100, Math.max(0, delayRatio * 100));
+  const costScore = Math.min(100, Math.max(5, costPct * 2.2 + 8));
+  const scheduleScore = Math.min(100, Math.max(5, delay * 3.8 + 8));
+  const progressScore = Math.min(100, Math.max(5, gap * 2.6 + 10));
+  const milestoneScore = Math.min(100, Math.max(5, delayRatio * 75 + msDelays * 2.5));
 
   const composite = Math.round(
     costScore * 0.28 + scheduleScore * 0.32 + progressScore * 0.22 + milestoneScore * 0.18
   );
 
   let level = 'LOW';
-  if (composite >= 75) level = 'CRITICAL';
-  else if (composite >= 50) level = 'HIGH';
-  else if (composite >= 25) level = 'MEDIUM';
+  let color = 'green';
+  if (composite >= 75) {
+    level = 'CRITICAL';
+    color = 'red';
+  } else if (composite >= 50) {
+    level = 'HIGH';
+    color = 'orange';
+  } else if (composite >= 25) {
+    level = 'MEDIUM';
+    color = 'yellow';
+  }
 
   const drivers = [];
-  if (progressScore >= 50) drivers.push('Progress Gap');
-  if (scheduleScore >= 50) drivers.push('Milestone Slippage');
-  if (costScore >= 50) drivers.push('Budget Overrun');
+  if (gap > 8) {
+    drivers.push({
+      driver: 'Progress Gap',
+      impact_pct: Math.round(Math.min(35, gap * 1.2) * 10) / 10,
+      value: `${Math.round(gap * 10) / 10}% behind planned schedule`,
+      severity: gap > 20 ? 'CRITICAL' : 'HIGH',
+    });
+  }
+  if (delay > 4) {
+    drivers.push({
+      driver: 'Schedule Delay',
+      impact_pct: Math.round(Math.min(30, delay * 1.4) * 10) / 10,
+      value: `${Math.round(delay * 10) / 10} months past baseline completion date`,
+      severity: delay > 12 ? 'CRITICAL' : 'HIGH',
+    });
+  }
+  if (costPct > 8) {
+    drivers.push({
+      driver: 'Cost Escalation',
+      impact_pct: Math.round(Math.min(28, costPct * 1.2) * 10) / 10,
+      value: `+Rs ${(p.cost_variance || 0).toLocaleString()} Cr (${Math.round(costPct * 10) / 10}% variance)`,
+      severity: costPct > 25 ? 'CRITICAL' : 'HIGH',
+    });
+  }
+  if (delayRatio > 0.2) {
+    drivers.push({
+      driver: 'Milestone Slippage',
+      impact_pct: Math.round(Math.min(25, delayRatio * 30) * 10) / 10,
+      value: `${msDelays} of ${msCount} key milestones breached`,
+      severity: delayRatio > 0.4 ? 'HIGH' : 'MEDIUM',
+    });
+  }
+
+  if (drivers.length === 0) {
+    drivers.push({
+      driver: 'Baseline Operations',
+      impact_pct: 12.0,
+      value: 'Project operating within acceptable variance envelope',
+      severity: 'LOW',
+    });
+  }
 
   return {
     project_id: p.project_id,
     project_name: p.project_name,
     overall_risk_score: Math.min(100, Math.max(10, composite)),
     overall_risk_level: level,
+    risk_level: level,
+    risk_color: color,
+    score_available: true,
+    components: {
+      cost: Math.round(costScore * 10) / 10,
+      schedule: Math.round(scheduleScore * 10) / 10,
+      progress: Math.round(progressScore * 10) / 10,
+      milestone: Math.round(milestoneScore * 10) / 10,
+    },
     cost_risk_pct: Math.round(costScore),
     time_risk_pct: Math.round(scheduleScore),
     progress_risk_pct: Math.round(progressScore),
     milestone_risk_pct: Math.round(milestoneScore),
-    primary_driver: drivers[0] || 'Schedule Drift',
+    schedule_overrun_risk_pct: Math.round(scheduleScore),
+    cost_overrun_risk_pct: Math.round(costScore),
+    primary_driver: drivers[0]?.driver || 'Schedule Drift',
     drivers,
     financial_impact_cr: Math.round(Number(p.cost_variance || 0)),
   };
@@ -116,23 +175,19 @@ export async function getDashboardSummary() {
     totalRevised += rev;
     totalExpenditure += exp;
 
-    // Ministry
     const m = p.ministry || 'Other';
     if (!ministryMap[m]) ministryMap[m] = { count: 0, cost: 0 };
     ministryMap[m].count += 1;
     ministryMap[m].cost += rev;
 
-    // Sector
     const s = p.sector || 'Other';
     sectorMap[s] = (sectorMap[s] || 0) + 1;
 
-    // Cost Variance Dist
     if (costPct <= 5) costDist['0-5%']++;
     else if (costPct <= 15) costDist['5-15%']++;
     else if (costPct <= 30) costDist['15-30%']++;
     else costDist['>30%']++;
 
-    // Schedule Delay Dist
     if (delay <= 3) delayDist['0-3 mo']++;
     else if (delay <= 8) delayDist['4-8 mo']++;
     else if (delay <= 16) delayDist['9-16 mo']++;
@@ -143,6 +198,7 @@ export async function getDashboardSummary() {
 
     return {
       ...p,
+      risk,
       ...risk,
     };
   });
@@ -223,10 +279,14 @@ export async function getDashboardSummary() {
 
 export async function getProjects(params = {}) {
   const projects = await getAllProjects();
-  let list = projects.map((p) => ({
-    ...p,
-    ...calculateProjectRisk(p),
-  }));
+  let list = projects.map((p) => {
+    const risk = calculateProjectRisk(p);
+    return {
+      ...p,
+      risk,
+      ...risk,
+    };
+  });
 
   if (params.search) {
     const q = params.search.toLowerCase();
@@ -256,9 +316,11 @@ export async function getProjects(params = {}) {
   const page = Number(params.page || 1);
   const limit = Number(params.limit || 15);
   const start = (page - 1) * limit;
+  const paged = list.slice(start, start + limit);
 
   return {
-    projects: list.slice(start, start + limit),
+    items: paged,
+    projects: paged,
     total: list.length,
     page,
     limit,
@@ -281,11 +343,11 @@ export async function getProjectFilters() {
   });
 
   return {
-    ministries: Array.from(ministries).sort(),
-    sectors: Array.from(sectors).sort(),
-    regions: Array.from(regions).sort(),
-    statuses: Array.from(statuses).sort(),
-    risk_levels: ['Low', 'Medium', 'High', 'Critical'],
+    ministries: ['All', ...Array.from(ministries).sort()],
+    sectors: ['All', ...Array.from(sectors).sort()],
+    regions: ['All', ...Array.from(regions).sort()],
+    statuses: ['All', ...Array.from(statuses).sort()],
+    risk_levels: ['All', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'],
   };
 }
 
@@ -293,15 +355,17 @@ export async function getProjectById(id) {
   const projects = await getAllProjects();
   const p = projects.find((x) => String(x.project_id) === String(id));
   if (!p) throw new Error(`Project ${id} not found`);
+  const risk = calculateProjectRisk(p);
   return {
     ...p,
-    ...calculateProjectRisk(p),
+    risk,
+    ...risk,
   };
 }
 
 export async function getProjectRisk(id) {
   const p = await getProjectById(id);
-  return calculateProjectRisk(p);
+  return p.risk || calculateProjectRisk(p);
 }
 
 export async function getProjectHistory(id) {
@@ -333,55 +397,104 @@ export async function getAlerts() {
   };
 }
 
+function _avg(arr) {
+  const clean = (arr || []).filter((v) => v !== null && v !== undefined && !isNaN(v));
+  if (!clean.length) return 0;
+  return Math.round((clean.reduce((a, b) => a + Number(b), 0) / clean.length) * 10) / 10;
+}
+
 export async function getMinistryAnalytics() {
   const projects = await getAllProjects();
-  const map = {};
+  const groups = {};
+
   projects.forEach((p) => {
-    const m = p.ministry || 'Other';
-    if (!map[m]) {
-      map[m] = {
-        ministry: m,
-        total_projects: 0,
-        total_cost: 0,
-        delayed_projects: 0,
-        critical_risk_count: 0,
+    const k = p.ministry || 'Not specified';
+    if (!groups[k]) {
+      groups[k] = {
+        count: 0,
+        original: [],
+        revised: [],
+        scores: [],
+        cost_var: [],
+        delays: [],
+        critical: 0,
+        high: 0,
       };
     }
-    map[m].total_projects++;
-    map[m].total_cost += Number(p.revised_cost || 0);
-    if (Number(p.schedule_delay_months || 0) > 3) map[m].delayed_projects++;
+    const g = groups[k];
+    g.count += 1;
+    g.original.push(Number(p.original_cost || 0));
+    g.revised.push(Number(p.revised_cost || 0));
+    g.cost_var.push(Number(p.cost_variance_pct || 0));
+    g.delays.push(Number(p.schedule_delay_months || 0));
     const risk = calculateProjectRisk(p);
-    if (risk.overall_risk_level === 'CRITICAL') map[m].critical_risk_count++;
+    g.scores.push(risk.overall_risk_score);
+    if (risk.overall_risk_level === 'CRITICAL') g.critical += 1;
+    if (risk.overall_risk_level === 'HIGH') g.high += 1;
   });
 
-  return Object.values(map).sort((a, b) => b.total_projects - a.total_projects);
+  return Object.entries(groups)
+    .map(([k, g]) => ({
+      ministry: k,
+      count: g.count,
+      total_budget_cr: Math.round(g.revised.reduce((a, b) => a + b, 0) * 100) / 100,
+      total_cost_cr: Math.round(g.revised.reduce((a, b) => a + b, 0) * 100) / 100,
+      total_original_cost_cr: Math.round(g.original.reduce((a, b) => a + b, 0) * 100) / 100,
+      avg_risk_score: _avg(g.scores),
+      avg_cost_variance_pct: _avg(g.cost_var),
+      avg_schedule_delay_months: _avg(g.delays),
+      critical_projects: g.critical,
+      high_risk_projects: g.high,
+      risk_available: true,
+    }))
+    .sort((a, b) => b.avg_risk_score - a.avg_risk_score);
 }
 
 export async function getSectorAnalytics() {
   const projects = await getAllProjects();
-  const map = {};
+  const groups = {};
+
   projects.forEach((p) => {
-    const s = p.sector || 'Other';
-    if (!map[s]) {
-      map[s] = {
-        sector: s,
-        total_projects: 0,
-        total_cost: 0,
-        avg_delay_months: 0,
-        total_delay: 0,
+    const k = p.sector || 'General';
+    if (!groups[k]) {
+      groups[k] = {
+        count: 0,
+        original: [],
+        revised: [],
+        scores: [],
+        cost_var: [],
+        delays: [],
+        critical: 0,
+        high: 0,
       };
     }
-    map[s].total_projects++;
-    map[s].total_cost += Number(p.revised_cost || 0);
-    map[s].total_delay += Number(p.schedule_delay_months || 0);
+    const g = groups[k];
+    g.count += 1;
+    g.original.push(Number(p.original_cost || 0));
+    g.revised.push(Number(p.revised_cost || 0));
+    g.cost_var.push(Number(p.cost_variance_pct || 0));
+    g.delays.push(Number(p.schedule_delay_months || 0));
+    const risk = calculateProjectRisk(p);
+    g.scores.push(risk.overall_risk_score);
+    if (risk.overall_risk_level === 'CRITICAL') g.critical += 1;
+    if (risk.overall_risk_level === 'HIGH') g.high += 1;
   });
 
-  return Object.values(map)
-    .map((s) => ({
-      ...s,
-      avg_delay_months: Math.round((s.total_delay / s.total_projects) * 10) / 10,
+  return Object.entries(groups)
+    .map(([k, g]) => ({
+      sector: k,
+      count: g.count,
+      total_budget_cr: Math.round(g.revised.reduce((a, b) => a + b, 0) * 100) / 100,
+      total_cost_cr: Math.round(g.revised.reduce((a, b) => a + b, 0) * 100) / 100,
+      total_original_cost_cr: Math.round(g.original.reduce((a, b) => a + b, 0) * 100) / 100,
+      avg_risk_score: _avg(g.scores),
+      avg_cost_variance_pct: _avg(g.cost_var),
+      avg_schedule_delay_months: _avg(g.delays),
+      critical_projects: g.critical,
+      high_risk_projects: g.high,
+      risk_available: true,
     }))
-    .sort((a, b) => b.total_projects - a.total_projects);
+    .sort((a, b) => b.avg_risk_score - a.avg_risk_score);
 }
 
 export async function getRegionAnalytics() {
@@ -396,12 +509,129 @@ export async function getRegionAnalytics() {
   return Object.values(map).sort((a, b) => b.total_projects - a.total_projects);
 }
 
+export async function getBenchmarks() {
+  const projects = await getAllProjects();
+  const ministries = await getMinistryAnalytics();
+  const sectors = await getSectorAnalytics();
+  const regions = await getRegionAnalytics();
+
+  const scores = projects.map((p) => calculateProjectRisk(p).overall_risk_score);
+  const costVars = projects.map((p) => Number(p.cost_variance_pct || 0));
+  const delays = projects.map((p) => Number(p.schedule_delay_months || 0));
+
+  return {
+    global_benchmarks: {
+      total_projects: projects.length,
+      scored_projects: projects.length,
+      average_risk_score: _avg(scores),
+      average_cost_variance_pct: _avg(costVars),
+      average_schedule_delay_months: _avg(delays),
+    },
+    ministry_rankings: ministries,
+    sector_rankings: sectors.slice(0, 12),
+    region_rankings: regions,
+  };
+}
+
+export async function getDelayTaxonomy() {
+  const projects = await getAllProjects();
+  const MOSPI_TAXONOMY = [
+    'Land acquisition delay',
+    'Forest / environmental clearance delay',
+    'Financing tie-up delay',
+    'Contractor / tendering issues',
+    'Law and order problems',
+    'Geological surprises',
+    'Utility shifting',
+    'Lack of infrastructure linkages',
+  ];
+
+  const catData = {};
+  MOSPI_TAXONOMY.forEach((cat) => {
+    catData[cat] = {
+      category: cat,
+      count: 0,
+      cost_escalation_total: 0,
+      delay_months_total: 0,
+      sectors: {},
+      top_projects: [],
+    };
+  });
+
+  const otherCat = {
+    category: 'Other / Unclassified',
+    count: 0,
+    cost_escalation_total: 0,
+    delay_months_total: 0,
+    sectors: {},
+    top_projects: [],
+  };
+
+  let delayedCount = 0;
+
+  projects.forEach((p) => {
+    const reason = p.reason_for_delay || '';
+    if (!reason || reason.trim().toLowerCase() === 'none') return;
+
+    delayedCount++;
+    let matchedCat = null;
+    for (const cat of MOSPI_TAXONOMY) {
+      if (reason.toLowerCase().includes(cat.toLowerCase().split(' ')[0])) {
+        matchedCat = cat;
+        break;
+      }
+    }
+
+    const target = matchedCat ? catData[matchedCat] : otherCat;
+    target.count++;
+    const cv = Number(p.cost_variance || 0);
+    if (cv > 0) target.cost_escalation_total += cv;
+    const dm = Number(p.schedule_delay_months || 0);
+    if (dm > 0) target.delay_months_total += dm;
+
+    const sec = p.sector || 'General';
+    target.sectors[sec] = (target.sectors[sec] || 0) + 1;
+
+    if (target.top_projects.length < 5) {
+      target.top_projects.push({
+        project_id: p.project_id,
+        project_name: p.project_name,
+        cost_variance: p.cost_variance,
+        schedule_delay_months: p.schedule_delay_months,
+        sector: p.sector,
+      });
+    }
+  });
+
+  const results = MOSPI_TAXONOMY.map((cat) => {
+    const d = catData[cat];
+    const cnt = d.count;
+    return {
+      category: cat,
+      count: cnt,
+      percentage: delayedCount ? Math.round((cnt / delayedCount) * 1000) / 10 : 0,
+      cost_escalation_total: Math.round(d.cost_escalation_total * 100) / 100,
+      avg_delay_months: cnt ? Math.round((d.delay_months_total / cnt) * 10) / 10 : 0,
+      sectors: Object.entries(d.sectors)
+        .map(([k, v]) => ({ sector: k, count: v }))
+        .sort((a, b) => b.count - a.count),
+      top_projects: d.top_projects,
+    };
+  }).sort((a, b) => b.count - a.count);
+
+  return {
+    total_delayed_projects: delayedCount,
+    taxonomy: results,
+    source: 'Official MoSPI IPMD Flash Report Delay Classification Standards',
+  };
+}
+
 export function simulateRisk(payload) {
   const orig = Number(payload.original_cost || 1000);
   const rev = Number(payload.revised_cost || orig);
   const planProg = Number(payload.planned_progress || 50);
   const actProg = Number(payload.actual_progress || 40);
-  const costPct = ((rev - orig) / orig) * 100;
+  const costPct = ((rev - orig) / (orig || 1)) * 100;
   const gap = planProg - actProg;
   const delay = Number(payload.schedule_delay_months || 0);
 

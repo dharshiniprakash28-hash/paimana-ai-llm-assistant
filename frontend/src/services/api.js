@@ -156,22 +156,12 @@ export const api = {
   getBenchmarks: () =>
     withFallback(
       () => fetchFromApi('/analytics/benchmarks'),
-      () => [
-        { metric: 'Cost Overrun Benchmark', value: '14.2%', baseline: '22.8%', status: 'better' },
-        { metric: 'Schedule Delay Ratio', value: '0.21', baseline: '0.38', status: 'better' },
-        { metric: 'CUF Detection Lead Time', value: '7.4 mo', baseline: '1.2 mo', status: 'better' },
-      ]
+      () => fallback.getBenchmarks()
     ),
   getDelayTaxonomy: () =>
     withFallback(
       () => fetchFromApi('/analytics/delay-taxonomy'),
-      () => [
-        { category: 'Land Acquisition & R&R', share: 34.2, count: 171 },
-        { category: 'Forest & Environmental Clearances', share: 22.8, count: 114 },
-        { category: 'Contractor & Labour Shortage', share: 18.4, count: 92 },
-        { category: 'Geological & Engineering Surprises', share: 14.6, count: 73 },
-        { category: 'Inter-Departmental Utility Shifting', share: 10.0, count: 50 },
-      ]
+      () => fallback.getDelayTaxonomy()
     ),
 
   // ---- CUF / model evaluation ----
