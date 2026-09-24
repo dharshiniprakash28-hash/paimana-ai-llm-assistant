@@ -6,6 +6,21 @@ export function getApiBase() {
     if (custom && custom.trim()) {
       return custom.trim().replace(/\/+$/, '');
     }
+    // If running on a remote cloud domain (e.g. *.vercel.app)
+    const isRemote =
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1' &&
+      !window.location.hostname.endsWith('.local');
+
+    const envBase = (import.meta.env.VITE_API_BASE || '').trim().replace(/\/+$/, '');
+    if (isRemote) {
+      // Browsers block HTTP localhost calls from HTTPS cloud domains (Mixed Content).
+      // Only use the API base if it is an explicit HTTPS remote endpoint.
+      if (!envBase || envBase.includes('127.0.0.1') || envBase.includes('localhost') || !envBase.startsWith('https://')) {
+        return '';
+      }
+      return envBase;
+    }
   }
   return (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 }
@@ -23,6 +38,9 @@ export function setApiBase(url) {
 
 export async function fetchFromApi(endpoint, options = {}) {
   const base = getApiBase();
+  if (!base) {
+    throw new Error('No remote backend API configured; using direct Supabase cloud engine');
+  }
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const res = await fetch(`${base}${path}`, {
     headers: {
