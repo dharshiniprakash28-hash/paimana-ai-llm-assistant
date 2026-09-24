@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   RefreshCw
 } from 'lucide-react';
-import { api, API_BASE } from '../services/api';
+import { api, getApiBase, setApiBase } from '../services/api';
 import { useDataSource } from '../context/DataSourceContext';
 import DataSourceImport from '../components/DataSourceImport';
 
@@ -16,11 +16,14 @@ export default function SettingsPage() {
   const [assistantStatus, setAssistantStatus] = useState(null);
   const [backendHealth, setBackendHealth] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [backendUrl, setBackendUrl] = useState(getApiBase());
+  const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const checkHealth = async () => {
+  const checkHealth = async (targetUrl) => {
     setChecking(true);
+    const target = targetUrl || getApiBase();
     try {
-      const res = await fetch(`${API_BASE}/health`);
+      const res = await fetch(`${target}/health`);
       if (res.ok) {
         const data = await res.json();
         setBackendHealth(data);
@@ -28,7 +31,7 @@ export default function SettingsPage() {
         setBackendHealth({ status: 'offline', error: `HTTP ${res.status}` });
       }
     } catch {
-      setBackendHealth({ status: 'offline', error: 'Could not connect to localhost:8000' });
+      setBackendHealth({ status: 'offline', error: `Could not reach ${target}` });
     } finally {
       setChecking(false);
     }
@@ -130,21 +133,56 @@ CREATE TABLE risk_evaluations (
           </div>
 
           <div className="space-y-3 text-xs">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-              <span className="text-slate-400">FastAPI Backend (Port 8000):</span>
-              <span className="font-mono font-bold flex items-center gap-1.5">
-                {backendHealth?.status === 'healthy' ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Online (healthy)
-                  </span>
-                ) : (
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    Fallback Client Engine Active
-                  </span>
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300 font-semibold">FastAPI Backend Status:</span>
+                <span className="font-mono font-bold flex items-center gap-1.5">
+                  {backendHealth?.status === 'healthy' ? (
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      Online (healthy)
+                    </span>
+                  ) : (
+                    <span className="text-rose-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-rose-400" />
+                      Offline ({backendHealth?.error || 'unreachable'})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-800/80">
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                  Connected Backend API URL (Localhost or Deployed Link):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={backendUrl}
+                    onChange={(e) => {
+                      setBackendUrl(e.target.value);
+                      setSavedSuccess(false);
+                    }}
+                    placeholder="http://127.0.0.1:8000 or https://your-backend.onrender.com"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setApiBase(backendUrl);
+                      setSavedSuccess(true);
+                      checkHealth(backendUrl);
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    Save & Test
+                  </button>
+                </div>
+                {savedSuccess && (
+                  <p className="text-[11px] text-emerald-400 mt-1">
+                    ✓ Backend URL updated and saved!
+                  </p>
                 )}
-              </span>
+              </div>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/70 border border-slate-800">

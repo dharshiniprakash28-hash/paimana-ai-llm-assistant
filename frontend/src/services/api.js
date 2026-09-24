@@ -1,8 +1,29 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000';
+export function getApiBase() {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('PAIMANA_API_BASE');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+  }
+  return (import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+}
+
+export function setApiBase(url) {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('PAIMANA_API_BASE', url.trim().replace(/\/+$/, ''));
+    } else {
+      localStorage.removeItem('PAIMANA_API_BASE');
+    }
+    window.dispatchEvent(new CustomEvent('paimana-api-base-changed', { detail: url }));
+  }
+}
 
 export async function fetchFromApi(endpoint, options = {}) {
+  const base = getApiBase();
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${base}${path}`, {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -86,7 +107,7 @@ export const api = {
   // ---- Data source ----
   getDataSource: () => fetchFromApi('/datasource'),
   getDataSourceSchema: () => fetchFromApi('/datasource/schema'),
-  getSampleCsvUrl: () => `${API_BASE}/datasource/sample-csv`,
+  getSampleCsvUrl: () => `${getApiBase()}/datasource/sample-csv`,
   setDataSourceMode: (mode) =>
     fetchFromApi('/datasource/mode', { method: 'POST', body: JSON.stringify({ mode }) }),
   clearImportedDataset: () => fetchFromApi('/datasource/import', { method: 'DELETE' }),
@@ -95,7 +116,7 @@ export const api = {
   importDataset: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${API_BASE}/datasource/import`, { method: 'POST', body: form });
+    const res = await fetch(`${getApiBase()}/datasource/import`, { method: 'POST', body: form });
     if (!res.ok) {
       let detail = `Upload failed (${res.status})`;
       try {
@@ -110,4 +131,5 @@ export const api = {
   },
 };
 
+const API_BASE = getApiBase();
 export { API_BASE };

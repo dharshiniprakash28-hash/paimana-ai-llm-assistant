@@ -19,7 +19,7 @@ import MetricCard from '../components/MetricCard';
 import RiskBadge from '../components/RiskBadge';
 import NationalSnapshot from '../components/NationalSnapshot';
 import PrintReportHeader from '../components/PrintReportHeader';
-import { api } from '../services/api';
+import { api, getApiBase, setApiBase } from '../services/api';
 import { useDataSource } from '../context/DataSourceContext';
 
 const PIE_COLORS = {
@@ -50,6 +50,7 @@ export default function DashboardPage({ onSelectProject, onNavigateToWarnings })
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [backendUrlInput, setBackendUrlInput] = useState(getApiBase());
   const { status: dataSource, version } = useDataSource();
 
   const loadDashboardData = useCallback(async () => {
@@ -60,7 +61,7 @@ export default function DashboardPage({ onSelectProject, onNavigateToWarnings })
       setData(res);
     } catch {
       setError(
-        'Could not reach the PAIMANA-AI backend. Ensure the FastAPI server is running on port 8000.'
+        `Could not reach the PAIMANA-AI backend at "${getApiBase()}".`
       );
     } finally {
       setLoading(false);
@@ -128,14 +129,53 @@ export default function DashboardPage({ onSelectProject, onNavigateToWarnings })
 
   if (error || !data) {
     return (
-      <div className="p-6 bg-rose-950/40 border border-rose-600/40 rounded-xl text-rose-300">
-        <p className="font-semibold text-sm">{error || 'Unable to load dashboard data.'}</p>
-        <button
-          onClick={loadDashboardData}
-          className="mt-3 px-4 py-1.5 bg-rose-700 hover:bg-rose-600 text-white rounded-lg text-xs font-semibold"
-        >
-          Retry Connection
-        </button>
+      <div className="p-6 bg-slate-900/90 border border-rose-500/40 rounded-2xl text-slate-200 max-w-2xl mx-auto shadow-2xl backdrop-blur-md space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
+            <AlertOctagon className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-base text-rose-200">Backend Connection Error</h3>
+            <p className="text-xs text-rose-300/90 mt-0.5">{error || 'Unable to connect to PAIMANA-AI backend API.'}</p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+          <label className="block text-xs font-semibold text-slate-300">
+            Connect to Deployed Backend URL:
+          </label>
+          <p className="text-[11px] text-slate-400">
+            Paste your deployed FastAPI backend URL below (e.g. from Render, Railway, or Koyeb):
+          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <input
+              type="text"
+              value={backendUrlInput}
+              onChange={(e) => setBackendUrlInput(e.target.value)}
+              placeholder="https://paimana-backend.onrender.com"
+              className="w-full flex-1 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none"
+            />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setApiBase(backendUrlInput);
+                  loadDashboardData();
+                }}
+                className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                Save & Connect
+              </button>
+              <button
+                type="button"
+                onClick={loadDashboardData}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
