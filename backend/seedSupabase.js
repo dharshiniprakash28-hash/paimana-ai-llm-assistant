@@ -3,6 +3,31 @@ const path = require('path');
 const clientModule = require('./supabaseClient');
 const supabase = clientModule.default || clientModule;
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function upsertWithRetry(batch, batchNum, maxRetries = 5) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const { error } = await supabase.from('projects').upsert(batch, { onConflict: 'project_id' });
+      if (!error) return true;
+
+      console.error(`\n⚠️ Batch ${batchNum} attempt ${attempt} failed:`, error.message);
+      if (error.message.includes('Could not find the table')) {
+        return false;
+      }
+    } catch (err) {
+      console.error(`\n⚠️ Batch ${batchNum} attempt ${attempt} network error:`, err.message);
+    }
+
+    if (attempt < maxRetries) {
+      const delay = attempt * 1500;
+      console.log(`⏳ Retrying batch ${batchNum} in ${delay / 1000}s...`);
+      await sleep(delay);
+    }
+  }
+  return false;
+}
+
 async function seed() {
   console.log('🔄 Loading demo projects from projects_demo.json...');
   const jsonPath = path.join(__dirname, 'app', 'data', 'projects_demo.json');
@@ -15,6 +40,7 @@ async function seed() {
   let inserted = 0;
 
   for (let i = 0; i < projects.length; i += batchSize) {
+    const batchNum = Math.floor(i / batchSize) + 1;
     const batch = projects.slice(i, i + batchSize).map((p) => ({
       project_id: p.project_id,
       project_name: p.project_name,
@@ -46,22 +72,16 @@ async function seed() {
       history: p.history || [],
     }));
 
-    const { error } = await supabase.from('projects').upsert(batch, { onConflict: 'project_id' });
-
-    if (error) {
-      console.error(`❌ Error inserting batch ${i / batchSize + 1}:`, error.message);
-      if (error.message.includes('Could not find the table')) {
-        console.log('\n⚠️  Please create the database tables first!');
-        console.log('👉 Copy the SQL from backend/supabase_schema.sql and run it in the Supabase SQL Editor.');
-        return;
-      }
-    } else {
+    const success = await upsertWithRetry(batch, batchNum);
+    if (success) {
       inserted += batch.length;
       process.stdout.write(`✅ Inserted ${inserted}/${projects.length} projects...\r`);
+    } else {
+      console.error(`❌ Batch ${batchNum} could not be inserted after retries.`);
     }
   }
 
-  console.log(`\n🎉 Seeding complete! Successfully synced ${inserted} projects into Supabase.`);
+  console.log(`\n🎉 Seeding complete! Total synced: ${inserted}/${projects.length} projects.`);
 }
 
 seed().catch((err) => {
