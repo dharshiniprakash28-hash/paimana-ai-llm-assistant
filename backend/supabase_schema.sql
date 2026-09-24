@@ -94,8 +94,10 @@ CREATE POLICY "Allow all on projects" ON public.projects FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Allow public read access on candidate_telemetry" ON public.candidate_telemetry;
 CREATE POLICY "Allow public read access on candidate_telemetry" ON public.candidate_telemetry FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Allow all on candidate_telemetry" ON public.candidate_telemetry FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all on candidate_telemetry" ON public.candidate_telemetry;
+CREATE POLICY "Allow all on candidate_telemetry" ON public.candidate_telemetry FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Allow public read access on risk_evaluations" ON public.risk_evaluations;
 CREATE POLICY "Allow public read access on risk_evaluations" ON public.risk_evaluations FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Allow all on risk_evaluations" ON public.risk_evaluations FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow all on risk_evaluations" ON public.risk_evaluations;
+CREATE POLICY "Allow all on risk_evaluations" ON public.risk_evaluations FOR ALL USING (true);
